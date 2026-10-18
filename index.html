@@ -1,0 +1,696 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="description" content="米国メディア(CNN / NYT / NPR / Fox / ABC)の見出しをRSSから自動取得し、日本語訳で表示するアンテナアプリ。">
+<meta name="theme-color" content="#101419">
+<title>IL WIRE ── イスラエルニュース・アンテナ</title>
+<style>
+:root{
+  --paper:#101419;
+  --card:#181E26;
+  --ink:#E9EDF1;
+  --ink2:#9AA7B2;
+  --ink3:#6E7A87;
+  --cobalt:#E8A33D;
+  --cobalt-soft:#262114;
+  --red:#D64541;
+  --red-soft:#2A1516;
+  --line:#262E38;
+  --line-soft:#1F2630;
+  --mono-ink:#E9EDF1;
+  --sans:'Zen Kaku Gothic New','Noto Sans JP',-apple-system,'Hiragino Kaku Gothic ProN','Yu Gothic',sans-serif;
+  --body:'Noto Sans JP',-apple-system,'Hiragino Kaku Gothic ProN','Yu Gothic',sans-serif;
+  --mono:'IBM Plex Mono',ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html{-webkit-text-size-adjust:100%}
+body{
+  background:var(--paper);
+  color:var(--ink);
+  font-family:var(--body);
+  font-size:15px;
+  line-height:1.7;
+  min-height:100vh;
+}
+a{color:inherit}
+button{font-family:inherit;cursor:pointer}
+:focus-visible{outline:2px solid var(--cobalt);outline-offset:2px;border-radius:2px}
+
+.wrap{max-width:1080px;margin:0 auto;padding:0 20px}
+
+/* ── masthead ─────────────────────────── */
+.masthead{padding:34px 0 0;border-bottom:1px solid var(--line);background:var(--paper)}
+.mast-top{display:flex;align-items:flex-end;justify-content:space-between;gap:24px;flex-wrap:wrap}
+.brand{display:flex;gap:14px;align-items:flex-start}
+.antenna{width:34px;height:34px;color:var(--cobalt);flex:none;margin-top:6px}
+.brand .eyebrow{
+  font-family:var(--mono);font-size:11.5px;font-weight:600;letter-spacing:.22em;
+  color:var(--cobalt);text-transform:uppercase;display:flex;align-items:center;gap:8px;
+}
+.brand .eyebrow .dot{width:7px;height:7px;border-radius:50%;background:var(--red);display:inline-block;animation:blink 2.4s ease-in-out infinite}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:.25}}
+.brand h1{font-family:var(--sans);font-weight:900;font-size:30px;letter-spacing:.02em;line-height:1.3;margin-top:2px}
+.brand h1 .thin{font-weight:500;color:var(--ink2)}
+.brand .sub{font-size:12.5px;color:var(--ink2);margin-top:4px}
+.mast-meta{display:flex;flex-direction:column;align-items:flex-end;gap:8px;padding-bottom:4px}
+.clock{font-family:var(--mono);font-size:12.5px;color:var(--ink2);letter-spacing:.04em}
+.clock b{color:var(--ink);font-weight:600}
+.mast-actions{display:flex;gap:8px;align-items:center}
+.btn{
+  display:inline-flex;align-items:center;gap:7px;border:1px solid var(--line);
+  background:var(--card);color:var(--ink);font-size:13px;font-weight:600;
+  padding:7px 14px;border-radius:6px;transition:border-color .15s,background .15s;
+}
+.btn:hover{border-color:var(--cobalt);color:var(--cobalt)}
+.btn .spin{display:inline-block}
+.btn.loading .spin{animation:rot .9s linear infinite}
+@keyframes rot{to{transform:rotate(360deg)}}
+.recv-chip{font-family:var(--mono);font-size:11.5px;color:var(--ink2);border:1px solid var(--line);border-radius:999px;padding:6px 12px;background:var(--card);letter-spacing:.05em}
+.recv-chip b{color:var(--cobalt);font-weight:600}
+
+/* tabs */
+.cats{display:flex;gap:2px;margin-top:22px;overflow-x:auto;scrollbar-width:none}
+.cats::-webkit-scrollbar{display:none}
+.cat{
+  flex:none;border:none;background:none;font-family:var(--mono);font-size:13px;font-weight:500;
+  letter-spacing:.06em;color:var(--ink2);padding:11px 16px 13px;border-bottom:2px solid transparent;
+  transition:color .15s;
+}
+.cat:hover{color:var(--ink)}
+.cat.active{color:var(--cobalt);border-bottom-color:var(--cobalt);font-weight:600}
+.cat .n{font-size:10.5px;color:var(--ink3);margin-left:5px}
+.cat.active .n{color:var(--cobalt)}
+
+/* ── toolbar ─────────────────────────── */
+.main{display:grid;grid-template-columns:minmax(0,1fr) 300px;gap:32px;padding:22px 0 60px;align-items:start}
+.content{min-width:0}
+.toolbar{display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin-bottom:16px}
+.search{
+  flex:1;min-width:180px;display:flex;align-items:center;gap:9px;border:1px solid var(--line);
+  background:var(--card);border-radius:6px;padding:8px 13px;transition:border-color .15s;
+}
+.search:focus-within{border-color:var(--cobalt)}
+.search svg{width:15px;height:15px;color:var(--ink3);flex:none}
+.search input{border:none;outline:none;background:none;font-family:var(--body);font-size:13.5px;width:100%;color:var(--ink)}
+.search input::placeholder{color:var(--ink3)}
+.modes{display:flex;border:1px solid var(--line);border-radius:6px;overflow:hidden;background:var(--card)}
+.mode{
+  border:none;background:none;font-size:12px;font-weight:600;color:var(--ink2);
+  padding:8px 13px;transition:background .15s,color .15s;
+}
+.mode + .mode{border-left:1px solid var(--line-soft)}
+.mode.active{background:var(--cobalt);color:#fff}
+
+/* banners */
+.banner{display:none;border-radius:6px;padding:11px 15px;font-size:13px;margin-bottom:14px;line-height:1.6}
+.banner.show{display:flex;gap:10px;align-items:flex-start;justify-content:space-between;flex-wrap:wrap}
+.banner .msg{flex:1;min-width:200px}
+.banner .acts{display:flex;gap:8px;flex:none}
+.banner.err{background:var(--red-soft);border:1px solid #6B2E2A;color:#F0B9B4}
+.banner.info{background:var(--cobalt-soft);border:1px solid #6B5A32;color:#EFD9A8}
+.banner button{border:1px solid currentColor;background:none;color:inherit;font-size:12px;font-weight:600;border-radius:5px;padding:5px 11px}
+.banner button:hover{background:rgba(0,0,0,.05)}
+.banner .x{border:none;font-size:15px;line-height:1;padding:2px 6px}
+
+/* status line */
+.statusline{font-family:var(--mono);font-size:11.5px;color:var(--ink3);letter-spacing:.05em;margin-bottom:18px;display:flex;gap:14px;flex-wrap:wrap}
+.statusline b{color:var(--ink2);font-weight:500}
+
+/* ── dispatch cards ──────────────────── */
+.feed{display:flex;flex-direction:column;gap:14px}
+.dispatch{
+  background:var(--card);border:1px solid var(--line);border-radius:8px;
+  padding:16px 20px 14px;transition:border-color .15s,box-shadow .15s;
+  animation:rise .4s ease both;
+}
+@keyframes rise{from{opacity:0;transform:translateY(7px)}to{opacity:1;transform:none}}
+.dispatch:hover{border-color:#4A5666;box-shadow:0 2px 10px rgba(0,0,0,.35)}
+.dateline{display:flex;align-items:center;gap:10px;font-family:var(--mono);font-size:11px;letter-spacing:.06em;color:var(--ink2);flex-wrap:wrap}
+.headline,.headline-en,.snippet,.snippet-en{overflow-wrap:anywhere}
+.callsign{
+  background:var(--cobalt);color:#101419;font-weight:700;letter-spacing:.14em;
+  padding:2.5px 8px 2px;border-radius:3px;font-size:10.5px;flex:none;
+}
+.flash{
+  background:var(--red);color:#fff;font-weight:600;letter-spacing:.14em;
+  padding:2.5px 7px 2px;border-radius:3px;font-size:10px;flex:none;
+}
+.wire-rule{flex:1;height:1px;background:var(--line-soft);min-width:20px}
+.wire-time{flex:none}
+.rel{flex:none;color:var(--ink3)}
+.headline{font-family:var(--sans);font-weight:700;font-size:18.5px;line-height:1.5;margin-top:9px;letter-spacing:.01em}
+.headline a{text-decoration:none;color:var(--ink);transition:color .15s}
+.headline a:hover{color:var(--cobalt);text-decoration:underline;text-decoration-thickness:1.5px;text-underline-offset:3px}
+.headline .pending{color:var(--ink3);animation:pulse 1.2s ease-in-out infinite}
+@keyframes pulse{0%,100%{opacity:.45}50%{opacity:1}}
+.headline-en{font-size:13px;color:var(--ink2);line-height:1.55;margin-top:5px}
+.snippet{font-size:13.5px;color:var(--ink);line-height:1.8;margin-top:9px}
+.snippet-en{font-size:12.5px;color:var(--ink2);line-height:1.65;margin-top:6px}
+.trbtn{
+  border:1px solid var(--line);background:var(--card);color:var(--cobalt);font-size:11.5px;font-weight:600;
+  border-radius:5px;padding:3px 10px;margin-top:8px;
+}
+.trbtn:hover{border-color:var(--cobalt)}
+.dispatch-foot{margin-top:11px;padding-top:9px;border-top:1px solid var(--line-soft);display:flex;justify-content:space-between;align-items:center;gap:12px}
+.origin{font-size:12.5px;font-weight:600;color:var(--cobalt);text-decoration:none;display:inline-flex;gap:5px;align-items:center}
+.origin:hover{text-decoration:underline}
+.origin svg{width:11px;height:11px}
+
+/* mode-dependent visibility */
+body[data-mode="ja"] .headline-en,body[data-mode="ja"] .snippet-en{display:none}
+body[data-mode="en"] .headline .ja,body[data-mode="en"] .snippet{display:none}
+
+/* skeletons */
+.skel{background:var(--card);border:1px solid var(--line);border-radius:8px;padding:16px 20px}
+.skel .l{height:10px;border-radius:4px;background:#232B35;animation:pulse 1.4s ease-in-out infinite}
+.skel .l1{width:120px;height:14px;border-radius:3px;background:var(--line)}
+.skel .l2{width:70%;margin-top:12px;height:15px}
+.skel .l3{width:45%;margin-top:8px}
+.skel .l4{width:95%;margin-top:16px;height:9px}
+.skel .l5{width:80%;margin-top:7px;height:9px}
+
+.empty{background:var(--card);border:1px dashed var(--line);border-radius:8px;padding:40px 24px;text-align:center;color:var(--ink2);font-size:13.5px}
+
+/* ── rail ────────────────────────────── */
+.rail{display:flex;flex-direction:column;gap:16px;position:sticky;top:20px}
+.panel{background:var(--card);border:1px solid var(--line);border-radius:8px;padding:17px 18px}
+.panel h3{font-family:var(--mono);font-size:11px;font-weight:600;letter-spacing:.2em;color:var(--ink2);text-transform:uppercase;display:flex;align-items:center;gap:8px;margin-bottom:13px}
+.panel h3 svg{width:14px;height:14px;color:var(--cobalt)}
+.recv-row{display:flex;align-items:center;gap:11px;padding:7px 0;border-top:1px solid var(--line-soft);font-size:12.5px}
+.recv-row:first-of-type{border-top:none}
+.recv-row .name{flex:1;font-weight:500}
+.recv-row .cnt{font-family:var(--mono);font-size:11px;color:var(--ink3)}
+.sig{width:20px;height:14px;flex:none;display:block}
+.sig rect{fill:#3A444F;transition:fill .3s}
+.sig.ok rect{fill:var(--cobalt)}
+.sig.fail rect{fill:#3A444F}
+.sig.fail rect:first-child{fill:var(--red)}
+.sig.loading{animation:pulse 1.1s ease-in-out infinite}
+.howto{font-size:12px;color:var(--ink2);line-height:1.75}
+.howto p+p{margin-top:7px}
+.howto b{color:var(--ink);font-weight:600}
+.note{font-size:11px;color:var(--ink3);line-height:1.7}
+
+footer{border-top:1px solid var(--line);padding:22px 0 40px;font-size:11.5px;color:var(--ink3);line-height:1.8}
+footer .wrap{display:flex;justify-content:space-between;gap:20px;flex-wrap:wrap}
+
+@media (max-width:1020px){
+  .main{grid-template-columns:1fr}
+  .rail{position:static;flex-direction:row;flex-wrap:wrap}
+  .rail .panel{flex:1;min-width:260px}
+}
+@media (max-width:640px){
+  .masthead{padding-top:24px}
+  .brand h1{font-size:23px}
+  .mast-meta{align-items:flex-start}
+  .rail{flex-direction:column}
+  .rail .panel{min-width:0}
+  .dispatch{padding:14px 15px 12px}
+  .headline{font-size:16.5px}
+}
+@media (prefers-reduced-motion:reduce){
+  *{animation:none!important;transition:none!important}
+}
+</style>
+</head>
+<body data-mode="both">
+
+<header class="masthead">
+  <div class="wrap">
+    <div class="mast-top">
+      <div class="brand">
+        <svg class="antenna" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" aria-hidden="true">
+          <path d="M12 21v-7"/>
+          <path d="M8.4 10.2a5 5 0 0 1 7.2 0"/>
+          <path d="M5.6 7.2a9 9 0 0 1 12.8 0"/>
+          <circle cx="12" cy="13" r="1.7" fill="currentColor" stroke="none"/>
+        </svg>
+        <div>
+          <div class="eyebrow"><span class="dot" aria-hidden="true"></span>IL WIRE ANTENNA</div>
+          <h1>イスラエルニュース・アンテナ<span class="thin"> ── 翻訳付き</span></h1>
+          <p class="sub">The Times of Israel / The Jerusalem Post / ynetnews の見出しを自動受信し、日本語訳で表示します</p>
+        </div>
+      </div>
+      <div class="mast-meta">
+        <div class="clock" id="clock">──</div>
+        <div class="clock" id="clockTLV" style="margin-top:-6px">──</div>
+        <div class="mast-actions">
+          <span class="recv-chip" id="recvChip">受信 <b>──</b></span>
+          <button class="btn" id="refreshBtn" title="フィードを再取得">
+            <svg class="spin" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M21 12a9 9 0 1 1-2.6-6.3"/><path d="M21 3v6h-6"/></svg>
+            更新
+          </button>
+        </div>
+      </div>
+    </div>
+    <nav class="cats" id="cats" aria-label="局フィルタ"></nav>
+  </div>
+</header>
+
+<div class="wrap">
+  <div class="main">
+    <div class="content">
+      <div class="toolbar">
+        <div class="search">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+          <input id="search" type="search" placeholder="見出しを検索(日本語 / 英語)" aria-label="見出しを検索">
+        </div>
+        <div class="modes" role="group" aria-label="表示モード">
+          <button class="mode active" data-m="both">訳+原文</button>
+          <button class="mode" data-m="ja">日本語のみ</button>
+          <button class="mode" data-m="en">英語のみ</button>
+        </div>
+      </div>
+
+      <div class="banner err" id="errBanner" role="alert">
+        <span class="msg" id="errMsg"></span>
+        <span class="acts">
+          <button id="retryBtn">再試行</button>
+          <button id="sampleBtn">サンプルを表示</button>
+        </span>
+      </div>
+      <div class="banner info" id="infoBanner">
+        <span class="msg" id="infoMsg"></span>
+        <button class="x" id="infoX" aria-label="閉じる">×</button>
+      </div>
+
+      <div class="statusline" id="statusline"></div>
+      <div class="feed" id="feed"></div>
+    </div>
+
+    <aside class="rail">
+      <div class="panel">
+        <h3>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M12 21v-7"/><path d="M8.4 10.2a5 5 0 0 1 7.2 0"/><path d="M5.6 7.2a9 9 0 0 1 12.8 0"/><circle cx="12" cy="13" r="1.7" fill="currentColor" stroke="none"/></svg>
+          受信状態
+        </h3>
+        <div id="recvRows"></div>
+      </div>
+      <div class="panel">
+        <h3>使い方</h3>
+        <div class="howto">
+          <p>各局のRSSを自動取得して<b>機械翻訳</b>で表示します。上部のタブで<b>表示する局</b>を切り替えられます。</p>
+          <p>カードをクリックすると<b>元の記事</b>(英語)が開きます。検索は日本語・英語どちらでも一致します。</p>
+          <p>表示モードで<b>訳文のみ / 原文のみ</b>に切り替えられます。翻訳は約5分ごとに自動更新されます。</p>
+        </div>
+      </div>
+      <div class="panel">
+        <h3>翻訳について</h3>
+        <div class="note">
+          見出しと要約は各社の公開RSSから自動取得し、機械翻訳(Google翻訳 / MyMemory)で日本語化しています。英語とヘブライ語の見出しに対応しています。翻訳は参考程度にご利用ください。記事本文・著作権は各社に帰属します。
+        </div>
+      </div>
+    </aside>
+  </div>
+</div>
+
+<footer>
+  <div class="wrap">
+    <span>見出しは各社の公開RSSから自動取得・約5分ごとに更新。記事の著作権は各社に帰属します。</span>
+    <span>取得元:The Times of Israel · The Jerusalem Post · ynetnews</span>
+  </div>
+</footer>
+
+<script>
+'use strict';
+
+/* ── data sources ─────────────────────────────────────── */
+const OUTLETS = {
+  TOI:{name:'The Times of Israel',cs:'TOI'},
+  JPOST:{name:'The Jerusalem Post',cs:'JPOST'},
+  YNET:{name:'ynetnews',cs:'YNET'},
+  SAMPLE:{name:'サンプル',cs:'SAMPLE'}
+};
+const FEEDS = [
+  ['TOI','https://www.timesofisrael.com/feed/'],
+  ['JPOST','https://www.jpost.com/rss/rssfeedsfrontpage.aspx'],
+  ['YNET','https://www.ynetnews.com/Integration/StoryRss2.xml']
+];
+const MAX_ITEMS = 24;
+/* ── tiny helpers ─────────────────────────────────────── */
+const $ = s => document.querySelector(s);
+const esc = s => s.replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+function h(str){ let x=2166136261; for(let i=0;i<str.length;i++){ x^=str.charCodeAt(i); x=Math.imul(x,16777619); } return (x>>>0).toString(36); }
+const store = {
+  get(k){ try{ const v=localStorage.getItem(k); return v?JSON.parse(v):null; }catch(e){ return null; } },
+  set(k,v){ try{ localStorage.setItem(k,JSON.stringify(v)); }catch(e){} }
+};
+
+/* ── state ────────────────────────────────────────────── */
+let activeOutlets = new Set(['TOI','JPOST','YNET']);
+let items = [];            // {outlet,title,link,desc,date,jaT,jaS}
+let statusMap = {};        // outlet -> {state:'loading'|'ok'|'fail', n}
+let gtxBlocked = false;    // gtx endpoint unreachable -> degrade to manual translation
+let gtxEverOk = false;
+let lastUpdated = null;
+let trCache = store.get('uswire.tr.v1') || {};
+let trSaveTimer = null;
+let loadSeq = 0;
+
+/* ── fetch: RSS via multi-fallback ────────────────────── */
+async function fetchJSON(url){
+  const r = await fetch(url);
+  if(!r.ok) throw new Error('http '+r.status);
+  return r.json();
+}
+async function fetchText(url){
+  const r = await fetch(url);
+  if(!r.ok) throw new Error('http '+r.status);
+  return r.text();
+}
+function parseXML(xml){
+  const doc = new DOMParser().parseFromString(xml,'text/xml');
+  if(doc.querySelector('parsererror')) throw new Error('xml parse error');
+  const nodes = [...doc.querySelectorAll('item')].concat([...doc.querySelectorAll('entry')]);
+  return nodes.map(n => {
+    const get = t => { const e=n.querySelector(t); return e ? e.textContent.trim() : ''; };
+    let link = get('link');
+    if(!link){ const le=n.querySelector('link'); link = le ? (le.getAttribute('href')||'') : ''; }
+    return { title:get('title'), link, description:get('description'), pubDate:get('pubDate')||get('published')||get('updated') };
+  }).filter(x=>x.title);
+}
+async function fetchFeed(url){
+  const enc = encodeURIComponent(url);
+  // 1) rss2json (CORS-enabled, no key)
+  try{
+    const j = await fetchJSON('https://api.rss2json.com/v1/api.json?rss_url='+enc);
+    if(j && j.status==='ok' && Array.isArray(j.items) && j.items.length){
+      return j.items.map(it=>({title:it.title||'',link:it.link||'',description:it.description||'',pubDate:it.pubDate||''})).filter(x=>x.title);
+    }
+  }catch(e){}
+  // 2) allorigins raw XML
+  try{
+    const t = await fetchText('https://api.allorigins.win/raw?url='+enc);
+    const items = parseXML(t);
+    if(items.length) return items;
+  }catch(e){}
+  // 3) corsproxy
+  try{
+    const t = await fetchText('https://corsproxy.io/?url='+enc);
+    const items = parseXML(t);
+    if(items.length) return items;
+  }catch(e){}
+  // 4) direct (works only for CORS-open feeds)
+  try{
+    const t = await fetchText(url);
+    const items = parseXML(t);
+    if(items.length) return items;
+  }catch(e){}
+  return null;
+}
+
+/* ── translate: gtx → MyMemory, cached ────────────────── */
+async function gtx(text){
+  const r = await fetch('https://translate.googleapis.com/translate_a/single?client=gtx&sl=auto&tl=ja&dt=t&q='+encodeURIComponent(text), {signal:AbortSignal.timeout(9000)});
+  if(!r.ok) throw new Error('gtx '+r.status);
+  const j = await r.json();
+  const out = (j && j[0] ? j[0] : []).map(s=>(s&&s[0])||'').join('');
+  if(!out) throw new Error('gtx empty');
+  return out;
+}
+async function mm(text){
+  const q = text.slice(0,480);
+  const lang = /[\u0590-\u05FF]/.test(text) ? 'he|ja' : 'en|ja';
+  const r = await fetch('https://api.mymemory.translated.net/get?q='+encodeURIComponent(q)+'&langpair='+lang, {signal:AbortSignal.timeout(9000)});
+  const j = await r.json();
+  const t = j && j.responseData && j.responseData.translatedText;
+  if(!t || /^MYMEMORY WARNING/i.test(t)) throw new Error('mm fail');
+  return t;
+}
+async function trText(text, kind){
+  const key = h(text);
+  if(trCache[key]) return trCache[key];
+  let out = null;
+  if(!gtxBlocked){
+    try{ out = await gtx(text); gtxEverOk = true; }
+    catch(e){
+      if(!gtxEverOk){ gtxBlocked = true; showInfo('翻訳サービス(Google翻訳)に接続できませんでした。この環境からブロックされている可能性があります — 要約は「日本語訳」ボタンで個別に翻訳できます。'); }
+    }
+  }
+  if(!out && (kind==='title' || gtxEverOk===false)){ // titles always get a MyMemory attempt
+    try{ out = await mm(text); }catch(e){}
+  }
+  if(out){
+    trCache[key] = out;
+    clearTimeout(trSaveTimer);
+    trSaveTimer = setTimeout(()=>store.set('uswire.tr.v1',trCache), 2000);
+  }
+  return out;
+}
+
+/* concurrency pool */
+function createPool(n){
+  let active=0; const q=[];
+  const next=()=>{ if(!q.length||active>=n) return; active++; const job=q.shift(); job().finally(()=>{active--;next();}); };
+  return fn => { q.push(fn); next(); };
+}
+
+/* ── text utils ───────────────────────────────────────── */
+function stripHTML(html){
+  const d = new DOMParser().parseFromString('<div>'+html+'</div>','text/html');
+  return (d.body.textContent||'').replace(/\s+/g,' ').trim();
+}
+function truncate(s,n){
+  if(s.length<=n) return s;
+  const cut = s.slice(0,n);
+  const sp = cut.lastIndexOf(' ');
+  return (sp>n*0.6 ? cut.slice(0,sp) : cut).replace(/[,;:.\s]+$/,'') + ' …';
+}
+const jstFmt = new Intl.DateTimeFormat('ja-JP',{timeZone:'Asia/Tokyo',month:'numeric',day:'numeric',hour:'2-digit',minute:'2-digit'});
+const jstDay = new Intl.DateTimeFormat('ja-JP',{timeZone:'Asia/Tokyo',month:'long',day:'numeric',weekday:'short'});
+const jstHM  = new Intl.DateTimeFormat('ja-JP',{timeZone:'Asia/Tokyo',hour:'2-digit',minute:'2-digit'});
+function fmtJST(d){ return jstFmt.format(d).replace(/^/,'').replace(/\s/,' ') + ' JST'; }
+function relTime(d){
+  const s = (Date.now()-d.getTime())/1000;
+  if(s<90) return 'たった今';
+  if(s<3600) return Math.floor(s/60)+'分前';
+  if(s<86400) return Math.floor(s/3600)+'時間前';
+  return Math.floor(s/86400)+'日前';
+}
+const tlvDay = new Intl.DateTimeFormat('ja-JP',{timeZone:'Asia/Jerusalem',month:'long',day:'numeric',weekday:'short'});
+const tlvHM  = new Intl.DateTimeFormat('ja-JP',{timeZone:'Asia/Jerusalem',hour:'2-digit',minute:'2-digit'});
+function tickClock(){
+  const now = new Date();
+  $('#clock').innerHTML = '<b>'+jstDay.format(now)+'</b> '+jstHM.format(now)+' JST';
+  $('#clockTLV').innerHTML = '<b>'+tlvDay.format(now)+'</b> '+tlvHM.format(now)+' エルサレム';
+}
+
+/* ── render ───────────────────────────────────────────── */
+function renderFilters(){
+  const all = FEEDS.map(x=>x[0]);
+  $('#cats').innerHTML = '<button class="cat'+(activeOutlets.size===all.length?' active':'')+'" data-f="__all">全部</button>' +
+    all.map(k => '<button class="cat'+(activeOutlets.has(k)?' active':'')+'" data-f="'+k+'">'+esc(OUTLETS[k].name)+'</button>').join('');
+  [...document.querySelectorAll('.cat')].forEach(b=>b.addEventListener('click',()=>{
+    const f=b.dataset.f;
+    if(f==='__all'){ activeOutlets = new Set(all); }
+    else{
+      if(activeOutlets.has(f)) activeOutlets.delete(f); else activeOutlets.add(f);
+      if(!activeOutlets.size) activeOutlets = new Set(all);
+    }
+    renderFilters(); renderList();
+  }));
+}
+function skeleton(){
+  $('#feed').innerHTML = Array.from({length:5},()=>'<div class="skel"><div class="l l1"></div><div class="l l2"></div><div class="l l3"></div><div class="l l4"></div><div class="l l5"></div></div>').join('');
+}
+function renderStatus(){
+  const okN = Object.values(statusMap).filter(s=>s.state==='ok').length;
+  const allN = Object.keys(statusMap).length;
+  $('#recvChip').innerHTML = '受信 <b>'+okN+'/'+allN+'</b>';
+  $('#recvRows').innerHTML = Object.entries(statusMap).map(([k,s])=>
+    '<div class="recv-row"><span class="name">'+esc(OUTLETS[k]?OUTLETS[k].name:k)+'</span>'+
+    '<span class="cnt">'+(s.state==='ok'? s.n+'件' : s.state==='fail'? '不通' : '…')+'</span>'+
+    '<svg class="sig '+s.state+'" viewBox="0 0 20 14" aria-hidden="true"><rect x="0" y="9" width="4.6" height="5" rx="1"/><rect x="7.7" y="4.5" width="4.6" height="9.5" rx="1"/><rect x="15.4" y="0" width="4.6" height="14" rx="1"/></svg></div>'
+  ).join('');
+  const lu = lastUpdated ? '最終受信 '+jstHM.format(lastUpdated)+' JST' : '';
+  const shown = $('#search').value ? '絞り込み中' : items.length+'件表示';
+  $('#statusline').innerHTML = '<span><b>'+shown+'</b></span>'+(lu?'<span>'+lu+'</span>':'')+'<span>自動更新 5分</span>';
+}
+function cardHTML(it,i){
+  const o = OUTLETS[it.outlet]||{name:it.outlet,cs:it.outlet};
+  const flash = /\b(breaking|urgent|just in|alert)\b/i.test(it.title) ? '<span class="flash">FLASH</span>' : '';
+  const jaHead = it.jaT ? '<span class="ja">'+esc(it.jaT)+'</span>' : '<span class="pending">── 翻訳中 ──</span>';
+  const jaSnip = it.jaS ? esc(it.jaS) : (it.desc && gtxBlocked ? '' : '');
+  const trBtn = (it.desc && !it.jaS && gtxBlocked) ? '<button class="trbtn" data-i="'+i+'">日本語訳を表示</button>' : '';
+  const date = it.date ? fmtJST(it.date) : '';
+  return '<article class="dispatch" data-i="'+i+'">'+
+    '<div class="dateline"><span class="callsign">'+esc(o.cs)+'</span>'+flash+'<span class="wire-rule"></span>'+
+      (date?'<span class="wire-time">'+date+'</span>':'')+
+      (it.date?'<span class="rel">'+relTime(it.date)+'</span>':'')+'</div>'+
+    '<h2 class="headline"><a href="'+esc(it.link)+'" target="_blank" rel="noopener">'+jaHead+'</a></h2>'+
+    (document.body.dataset.mode!=='ja' ? '<p class="headline-en">'+esc(it.title)+'</p>' : '')+
+    (it.desc ? '<p class="snippet">'+(jaSnip?'<span class="ja">'+jaSnip+'</span>':'<span class="pending">…</span>')+'</p>' : '')+
+    (it.desc && document.body.dataset.mode!=='ja' ? '<p class="snippet-en">'+esc(truncate(it.desc,200))+'</p>' : '')+
+    trBtn+
+    '<div class="dispatch-foot"><a class="origin" href="'+esc(it.link)+'" target="_blank" rel="noopener">原文を読む(英語)<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M7 17 17 7"/><path d="M9 7h8v8"/></svg></a>'+
+    '<span class="rel">'+(it.date?relTime(it.date):'')+'</span></div>'+
+  '</article>';
+}
+function renderList(){
+  const q = $('#search').value.trim().toLowerCase();
+  let list = items.filter(it => activeOutlets.has(it.outlet));
+  if(q) list = list.filter(it => ((it.jaT||'')+it.title+' '+(it.jaS||'')+it.desc).toLowerCase().includes(q));
+  if(!list.length){
+    $('#feed').innerHTML = '<div class="empty">該当する見出しがありません。検索語を変えるか、更新してください。</div>';
+    renderStatus(); return;
+  }
+  $('#feed').innerHTML = list.map(it => cardHTML(it, items.indexOf(it))).join('');
+  document.querySelectorAll('.trbtn').forEach(b=>b.addEventListener('click',async()=>{
+    const it = items[+b.dataset.i]; if(!it) return;
+    b.disabled = true; b.textContent = '翻訳中…';
+    try{ const s = await mm(it.desc); it.jaS = s; trCache[h(it.desc)]=s; store.set('uswire.tr.v1',trCache); b.remove(); patchItem(items.indexOf(it)); }
+    catch(e){ b.disabled=false; b.textContent='翻訳に失敗 — 再試行'; }
+  }));
+  renderStatus();
+}
+function patchItem(i){
+  const el = document.querySelector('.dispatch[data-i="'+i+'"]');
+  if(!el || !items[i]) return;
+  const it = items[i];
+  const ja = el.querySelector('.headline .ja');
+  if(it.jaT){ el.querySelector('.headline a').innerHTML = '<span class="ja">'+esc(it.jaT)+'</span>'; }
+  if(it.jaS){
+    const sn = el.querySelector('.snippet');
+    if(sn) sn.innerHTML = '<span class="ja">'+esc(it.jaS)+'</span>';
+    const tb = el.querySelector('.trbtn'); if(tb) tb.remove();
+  }
+}
+
+/* ── translate queue ──────────────────────────────────── */
+async function translateAll(){
+  const pool = createPool(3);
+  items.forEach((it,i)=>{
+    pool(async()=>{
+      const t = await trText(it.title,'title');
+      if(t){ it.jaT=t; patchItem(i); }
+    });
+    if(it.desc && !gtxBlocked){
+      pool(async()=>{
+        const s = await trText(it.desc,'desc');
+        if(s){ it.jaS=s; patchItem(i); }
+      });
+    }
+  });
+}
+
+/* ── loading ──────────────────────────────────────────── */
+async function loadCategory(){
+  const seq = ++loadSeq;
+  hideBanners();
+  activeOutlets = new Set(FEEDS.map(x=>x[0]));
+  skeleton();
+  statusMap = {};
+  FEEDS.forEach(([o])=>{ statusMap[o]={state:'loading',n:0}; });
+  renderStatus();
+  const btn = $('#refreshBtn'); btn.classList.add('loading');
+
+  const results = await Promise.allSettled(FEEDS.map(async ([o,url])=>{
+    const raw = await fetchFeed(url);
+    return {o, raw};
+  }));
+
+  if(seq!==loadSeq) return; // superseded
+  let got = [];
+  results.forEach(r=>{
+    if(r.status==='fulfilled' && r.value.raw && r.value.raw.length){
+      const {o,raw} = r.value;
+      statusMap[o] = {state:'ok', n:Math.min(raw.length, MAX_ITEMS)};
+      raw.forEach(x=>got.push({
+        outlet:o, title:stripHTML(x.title), link:x.link,
+        desc:x.description ? truncate(stripHTML(x.description),220) : '',
+        date:x.pubDate ? new Date(x.pubDate) : null
+      }));
+    }
+  });
+  // mark remaining loading as fail
+  Object.keys(statusMap).forEach(k=>{ if(statusMap[k].state==='loading') statusMap[k]={state:'fail',n:0}; });
+
+  got.sort((a,b)=>(b.date?b.date.getTime():0)-(a.date?a.date.getTime():0));
+  const seen = new Set();
+  items = [];
+  for(const it of got){
+    const key = it.title.toLowerCase().replace(/[^a-z0-9]+/g,'').slice(0,60);
+    if(key && seen.has(key)) continue;
+    if(it.date && it.date.getTime()>Date.now()+6*3600e3) continue; // future-dated junk
+    seen.add(key); items.push(it);
+    if(items.length>=MAX_ITEMS) break;
+  }
+  lastUpdated = new Date();
+  btn.classList.remove('loading');
+  if(!items.length){
+    $('#feed').innerHTML = '';
+    showError('フィードに接続できませんでした(ネットワークまたは各社の配信の問題が考えられます)。');
+    renderStatus();
+    return;
+  }
+  renderList();
+  translateAll();
+}
+
+/* ── sample data ──────────────────────────────────────── */
+const SAMPLE = [
+  ['Knesset advances contested judicial overhaul bill after marathon session','クネセト、徹夜審議の末で物議を醸す司法改革法案を前進','The bill passed its first reading by a narrow margin amid large demonstrations outside the parliament.','法案は議会外の大規模なデモの中、僅差で第一読会を通過した。',40],
+  ['Israeli delegation holds talks in Cairo on easing border tensions','イスラエル代表団、国境緊張緩和へカイロで協議','Officials described the talks as technical but said further rounds are planned this month.','当局者は協議を技術的レベルと述べつつ、今月中にさらに数回の協議を予定していると明かした。',95],
+  ['Tech sector raises record funding for cybersecurity startups in Tel Aviv','テルアビブのサイバーセキュリティ企業、記録的な資金調達','Investors said demand for defense-focused software remains strong across European markets.','投資家は欧州市場で防衛関連ソフトの需要が強いと述べた。',170],
+  ['Water authority reports above-average rainfall for the Sea of Galilee','水利庁、ガリラヤ湖に平年を上回る降雨','The lake rose 40 centimeters this week, easing concerns about seasonal shortages.','湖面は今週40センチ上昇し、季節的な水不足への懸念が和らいだ。',260],
+  ['New light rail line opens connecting Jerusalem suburbs to the city center','エルサレム郊外と市中心部を結ぶ新ライトレール開業','The line is expected to carry 100,000 riders a day and reduce downtown congestion.','路線は1日10万人の利用を見込み、中心部の渋滞緩和が期待される。',350],
+  ['Archaeologists unveil an intact 2,000-year-old workshop near the Old City','考古学者、旧市街近くで完全な形の2000年前の工房を公開','Artifacts include stone vessels and coins from the Second Temple period.','出土品には第二神殿時代の石器や硬貨が含まれる。',470]
+];
+function loadSample(){
+  hideBanners();
+  activeOutlets = new Set(['SAMPLE']);
+  statusMap = {SAMPLE:{state:'ok',n:SAMPLE.length}};
+  items = SAMPLE.map(([t,jaT,desc,jaS,minAgo],i)=>({
+    outlet:'SAMPLE', title:t, jaT:'(サンプル)'+jaT, link:'#', desc,
+    jaS:'(サンプル)'+jaS, date:new Date(Date.now()-minAgo*60000)
+  }));
+  lastUpdated = new Date();
+  showInfo('サンプルデータを表示しています — 実データではありません。更新を押すと実フィードの取得に戻ります。');
+  renderFilters();
+  renderList();
+}
+
+/* ── banners ──────────────────────────────────────────── */
+function showError(msg){ $('#errMsg').textContent=msg; $('#errBanner').classList.add('show'); }
+function showInfo(msg){ $('#infoMsg').textContent=msg; $('#infoBanner').classList.add('show'); }
+function hideBanners(){ $('#errBanner').classList.remove('show'); $('#infoBanner').classList.remove('show'); }
+
+/* ── wire-up ──────────────────────────────────────────── */
+document.querySelectorAll('.mode').forEach(b=>b.addEventListener('click',()=>{
+  document.querySelectorAll('.mode').forEach(x=>x.classList.remove('active'));
+  b.classList.add('active');
+  document.body.dataset.mode = b.dataset.m;
+  store.set('uswire.mode', b.dataset.m);
+  renderList();
+}));
+let searchTimer;
+$('#search').addEventListener('input',()=>{ clearTimeout(searchTimer); searchTimer=setTimeout(renderList,160); });
+$('#refreshBtn').addEventListener('click',()=>loadCategory());
+$('#retryBtn').addEventListener('click',()=>loadCategory());
+$('#sampleBtn').addEventListener('click',()=>loadSample());
+$('#infoX').addEventListener('click',()=>$('#infoBanner').classList.remove('show'));
+setInterval(tickClock, 30000);
+document.addEventListener('visibilitychange',()=>{
+  if(!document.hidden && lastUpdated && Date.now()-lastUpdated.getTime()>5*60000) loadCategory();
+});
+setInterval(()=>{ if(!document.hidden && lastUpdated && Date.now()-lastUpdated.getTime()>5*60000) loadCategory(); }, 60000);
+
+/* init */
+(function(){
+  tickClock();
+  const m = store.get('uswire.mode');
+  if(m && ['both','ja','en'].includes(m)){
+    document.body.dataset.mode = m;
+    document.querySelectorAll('.mode').forEach(x=>x.classList.toggle('active', x.dataset.m===m));
+  }
+  const params = new URLSearchParams(location.search);
+  const sample = window.USE_SAMPLE || params.has('sample') || location.hash.includes('sample');
+  renderFilters();
+  if(sample) loadSample(); else loadCategory();
+})();
+</script>
+<script type="module" src="https://static.cloudflareinsights.com/beacon.min.js/vce701823e78c4301a35b7e07294d87301792088814092" integrity="sha512-UKNk8GbxkABxKcXYuLkO16EleLGUkcvJWtpSNmExE0Too3ZaFAxTscNWEc1OdAv5/BikHawapSCaiD2XCmp+Bw==" data-cf-beacon='{"version":"2024.11.0","token":"4edd5f8ec12a48cfa682ab8261b80a79","spa":2}' crossorigin="anonymous"></script>
+</body>
+</html>
